@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.aws-sam/
+.env
+*.js.map
+*.d.ts
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+api/dist/
+web/dist/
+
+# Agent files
+CLAUDE.md
+STARTER_PROMPT.md
+tasks/
+.agents/
+

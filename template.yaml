@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: QuestForge - AI-powered interactive text adventure
+
+Globals:
+  Function:
+    Timeout: 29
+    Runtime: nodejs20.x
+    MemorySize: 512
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref QuestForgeTable
+        OPENAI_API_KEY_PARAM: !Ref OpenAIKeyParam
+        OPENAI_MODEL: gpt-4o-mini
+        MAX_CHAPTERS: '25'
+        DAILY_TURN_LIMIT: '120'
+        ALLOWED_ORIGIN: !Ref AllowedOrigin
+        LOG_LEVEL: info
+        STAGE: prod
+
+Parameters:
+  OpenAIKeyParam:
+    Type: String
+    Default: /questforge/prod/openai-api-key
+    Description: SSM parameter path for the OpenAI API key
+  AllowedOrigin:
+    Type: String
+    Default: http://localhost:5173
+    Description: CORS allowed origin (set to Amplify URL after deploy)
+
+Resources:
+  # API Gateway
+  QuestForgeApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowHeaders:
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowOrigins:
+          - !Ref AllowedOrigin
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+
+  # Lambda Function
+  GameApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: questforge-game-api
+      CodeUri: api/
+      Handler: src/handler.handler
+      Description: QuestForge game API - routing, validation, AI, state
+      Events:
+        CreateSession:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref QuestForgeApi
+            Path: /sessions
+            Method: POST
+        GetSession:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref QuestForgeApi
+            Path: /sessions/{sessionId}
+            Method: GET
+        ContinueSession:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref QuestForgeApi
+            Path: /sessions/{sessionId}/choices
+            Method: POST
+        ListSessions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref QuestForgeApi
+            Path: /players/{playerId}/sessions
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref QuestForgeTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${OpenAIKeyParam}"
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: "*"
+      Tags:
+        Project: QuestForge
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        Format: esm
+        Sourcemap: true
+        EntryPoints:
+          - src/handler.ts
+        OutExtension:
+          - .js=.mjs
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - '@aws-sdk/client-dynamodb'
+          - '@aws-sdk/lib-dynamodb'
+          - '@aws-sdk/client-ssm'
+
+  # DynamoDB Table
+  QuestForgeTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: questforge
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - genre
+              - chapter
+              - title
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: QuestForge
+
+  # CloudWatch Alarm
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: questforge-lambda-errors
+      AlarmDescription: Fires when the game API Lambda has errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GameApiFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  ApiUrl:
+    Description: QuestForge API endpoint
+    Value: !Sub "https://${QuestForgeApi}.execute-api.${AWS::Region}.amazonaws.com"
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref QuestForgeTable
+  FunctionArn:
+    Description: Game API Lambda ARN
+    Value: !GetAtt GameApiFunction.Arn

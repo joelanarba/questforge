@@ -1,0 +1,30 @@
+{
+  "name": "questforge-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsx src/dev-server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.800.0",
+    "@aws-sdk/lib-dynamodb": "^3.800.0",
+    "@aws-sdk/client-ssm": "^3.800.0",
+    "openai": "^5.8.0",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.154",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.0.0",
+    "dotenv": "^16.5.0",
+    "esbuild": "^0.25.0",
+    "express": "^5.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}

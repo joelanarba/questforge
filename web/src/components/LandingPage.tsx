@@ -1,0 +1,77 @@
+import { Compass, Sparkles, Map, BookOpen } from 'lucide-react';
+
+interface LandingPageProps {
+  onStart: () => void;
+  onViewPast?: () => void;
+  hasPlayerId: boolean;
+}
+
+export function LandingPage({ onStart, onViewPast, hasPlayerId }: LandingPageProps) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[var(--color-bg-primary)] to-[var(--color-bg-secondary)]">
+      <div className="max-w-2xl text-center animate-fade-in">
+        <div className="flex justify-center mb-6">
+          <Compass className="w-16 h-16" style={{ color: 'var(--color-accent)' }} />
+        </div>
+        
+        <h1
+          className="text-6xl md:text-7xl font-bold mb-6 tracking-wide"
+          style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-primary)' }}
+        >
+          QuestForge
+        </h1>
+        
+        <p className="text-xl md:text-2xl mb-10 leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+          An infinite tapestry of interactive stories powered by AI. 
+          Choose your genre, pick an archetype, and let the journey unfold.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-12">
+          <div className="flex items-center gap-3 text-lg" style={{ color: 'var(--color-text-muted)' }}>
+            <Map className="w-6 h-6" />
+            <span>Endless Worlds</span>
+          </div>
+          <div className="flex items-center gap-3 text-lg" style={{ color: 'var(--color-text-muted)' }}>
+            <Sparkles className="w-6 h-6" />
+            <span>Dynamic Choices</span>
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <button
+            onClick={onStart}
+            className="group relative px-10 py-4 rounded-xl font-bold text-xl transition-all duration-300 cursor-pointer overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-1"
+            style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-card)', fontFamily: 'var(--font-display)' }}
+          >
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              Begin Journey
+            </span>
+            <div className="absolute inset-0 h-full w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ backgroundColor: 'var(--color-accent-light)' }}></div>
+          </button>
+
+          {hasPlayerId && onViewPast && (
+            <button
+              onClick={onViewPast}
+              className="group flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 cursor-pointer border shadow-sm hover:shadow-md hover:-translate-y-1"
+              style={{
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                fontFamily: 'var(--font-display)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-accent)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+              }}
+            >
+              <BookOpen size={20} className="text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] transition-colors" />
+              Past Adventures
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
