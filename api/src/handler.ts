@@ -3,6 +3,7 @@ import { handleStartAdventure } from './routes/startAdventure.js';
 import { handleContinueAdventure } from './routes/continueAdventure.js';
 import { handleGetSession } from './routes/getSession.js';
 import { handleListSessions } from './routes/listSessions.js';
+import { handleGetDailyQuest } from './routes/getDailyQuest.js';
 import { jsonResponse, errorResponse } from './shared/http.js';
 import { logger } from './shared/logger.js';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
@@ -55,6 +56,10 @@ export async function handler(
 
     if (method === 'GET' && path.match(/^\/players\/[^/]+\/sessions$/)) {
       return await handleListSessions(event);
+    }
+
+    if (method === 'GET' && path === '/daily-quest') {
+      return await handleGetDailyQuest(event);
     }
 
     return jsonResponse(404, { error: { code: 'NOT_FOUND', message: 'Route not found' } }, origin);

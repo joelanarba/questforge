@@ -112,6 +112,18 @@ class QuestForgeClient {
     const data = await res.json() as { sessions: GameSession[] };
     return data.sessions;
   }
+
+  async getDailyQuest(): Promise<any> {
+    const res = await fetch(`${BASE_URL}/daily-quest`);
+    if (res.status === 404) {
+      return null;
+    }
+    if (!res.ok) {
+      const err = await res.json() as ApiError;
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
 }
 
 export const apiClient = new QuestForgeClient();

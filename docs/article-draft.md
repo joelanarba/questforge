@@ -1,51 +1,47 @@
-# Weekend Creative Challenge: QuestForge
+# Weekend Creative Agent Challenge: QuestForge
+#agents
 
-## Vision: An Infinite Tapestry of Interactive Stories
-QuestForge is a browser-based, AI-powered interactive text adventure that puts you at the center of an unfolding narrative. Designed for the AWS Builder Center "Weekend Creative Challenge", it is a choose-your-own-adventure engine where the world remembers.
+## Vision & What It Does
+QuestForge is a browser-based, AI-powered interactive text adventure that puts you at the center of an unfolding narrative. Designed for the AWS Builder Center "Weekend Creative Agent Challenge", it is a choose-your-own-adventure engine where the world remembers.
 
-The core differentiator of QuestForge is its **persistent world state**. Unlike typical chatbots that act as game masters but forget your actions three messages later, QuestForge maintains structured state: your health, gold, reputation, inventory, NPC dispositions, and discovered secrets. If you betray a merchant in Chapter 2, that merchant remembers your treachery in Chapter 7—not because the language model happened to remember, but because that disposition is formally tracked in a database and fed into the AI's context window.
+To fulfill this week's challenge of turning the app into an **always-on agent**, QuestForge now autonomously generates a "Quest of the Day" every morning. This agent is scheduled to run daily without any user initiation, picking a new genre and archetype based on the day of the week, writing a fresh prologue and tagline, and making it available for returning players right on the landing page. The best tool is the one you never have to open—our players wake up to a brand new adventure ready to play.
 
-The guiding philosophy of this project is simple: **The model writes prose. The application owns state.**
+The core differentiator of QuestForge remains its **persistent world state**. Unlike typical chatbots, QuestForge maintains structured state: your health, gold, reputation, inventory, NPC dispositions, and discovered secrets. The guiding philosophy is simple: **The model writes prose. The application owns state.**
 
-## How It Was Built
-The core loop of QuestForge is straightforward: you choose a genre, select an archetype, and jump straight into the action. Every time you make a choice, the backend receives your decision, applies any state changes (like losing 10 health or gaining a rusted key), and prompts the AI for the next chapter.
+## How You Built It
+The core loop of QuestForge is straightforward: you choose a genre, select an archetype, and jump straight into the action. Every time you make a choice, the backend receives your decision, applies any state changes, and prompts the AI for the next chapter.
 
-The AI receives a tightly curated prompt containing:
-1. The static genre and archetype descriptions.
-2. A compact JSON representation of your stats, current inventory, and known NPC dispositions.
-3. A rolling summary of the story so far.
-4. Excerpts from the last two scenes.
-5. The specific action you chose to take.
+For the **Daily Quest Agent**, I built a dedicated AWS Lambda function triggered on a cron schedule by Amazon EventBridge Scheduler. This function determines the theme for the day (e.g., Deep Space/Scholar on Tuesdays), prompts the LLM to write a 150-word prologue with a catchy title and tagline, and saves the output to DynamoDB. The React frontend was updated to query this daily quest and display it prominently on the landing page.
 
-We strictly enforce the output shape using OpenAI's Structured Outputs (JSON Schema) and validate it on the server using `zod`. The model responds with the next story segment, updated state deltas (e.g., `-10 health`), new choices, and a rewritten rolling summary.
+One of the key challenges was ensuring the agent ran completely autonomously. By decoupling the generation step from the user request, the player experiences zero latency when discovering the new daily quest. 
 
-## AWS Services and Architecture Overview
+## AWS Services Used / Architecture Overview
 The architecture is designed to be simple, robust, and cost-effective, leveraging serverless patterns.
 
 ```mermaid
 graph TD
+    Scheduler[Amazon EventBridge Scheduler] -->|Cron: 06:00 UTC| AgentLambda[AWS Lambda: Daily Quest Agent]
+    AgentLambda -->|Write Daily Quest| DynamoDB[Amazon DynamoDB]
+    
     Client[Browser React SPA] -->|HTTPS| Amplify[AWS Amplify Hosting]
     Client -->|API Requests| APIGW[Amazon API Gateway HTTP API]
     APIGW --> Lambda[AWS Lambda: QuestForge API]
     Lambda --> SSM[AWS Systems Manager Parameter Store]
-    Lambda --> DynamoDB[Amazon DynamoDB: questforge table]
+    Lambda <--> DynamoDB
     Lambda --> OpenAI[OpenAI API]
+    AgentLambda --> SSM
+    AgentLambda --> OpenAI
 ```
 
-1. **AWS Amplify Hosting**: Serves the React frontend. It provides continuous deployment directly from GitHub, SSL, and global CDN delivery, ensuring that a new player can jump into a game in under 20 seconds.
-2. **Amazon API Gateway (HTTP API)**: Acts as the public edge for our backend, handling CORS and throttling to protect the downstream Lambda function.
-3. **AWS Lambda**: The single compute unit containing our internal routing, validation logic, prompt assembly, OpenAI interaction, and state reducer.
-4. **Amazon DynamoDB**: Stores all persistent data. We use a single-table design with a generic `pk` and `sk` to store session metadata, per-chapter immutable records, and atomic rate-limit counters. DynamoDB TTL automatically expires abandoned sessions.
-5. **AWS Systems Manager (SSM) Parameter Store**: Securely stores the OpenAI API key (as a SecureString), ensuring it is never logged, hardcoded, or exposed in environment variables.
+1. **AWS Amplify Hosting**: Serves the React frontend.
+2. **Amazon API Gateway (HTTP API)**: Acts as the public edge for our backend.
+3. **AWS Lambda**: Powers both the interactive game API and the scheduled Daily Quest Agent.
+4. **Amazon DynamoDB**: Stores all persistent data, including game sessions and the newly generated daily quests.
+5. **Amazon EventBridge Scheduler**: Autonomously triggers the daily quest generation.
+6. **AWS Systems Manager (SSM) Parameter Store**: Securely stores the OpenAI API key.
 
-### The Elephant in the Room: Why OpenAI and not Amazon Bedrock?
-Given this is an AWS challenge, using Amazon Bedrock for the generative AI component might seem expected. However, QuestForge relies heavily on guaranteed structured JSON outputs to safely update game state without manual parsing heuristics. At the time of this build, OpenAI's Structured Outputs provided the exact reliability required to ensure the model adhered strictly to the schema (returning valid arrays of choices and valid integer deltas for stats). AWS owns the infrastructure, the state, the storage, the compute, and the operations, while OpenAI serves solely as the creative prose engine.
+## What You Learned
+Building the always-on agent for QuestForge reinforced the value of asynchronous content generation. By shifting the creative load from a synchronous user request to a scheduled background job, the perceived performance for the user improves dramatically. I also learned how incredibly easy it is to wire up EventBridge Scheduler to a Lambda function to create reliable, autonomous agents.
 
-## What Was Learned
-Building QuestForge reinforced the value of decoupling creativity from state management. When you try to make an LLM handle arithmetic or long-term memory, hallucinations break the game. By forcing the LLM to return state deltas (e.g., "reputation - 5") and handling the arithmetic purely in application logic, the experience becomes bulletproof.
-
-Furthermore, leveraging DynamoDB for both long-term storage (chapter history) and short-term operational data (rate limiting counters via atomic `ADD` operations) showcased the versatility of single-table design.
-
-## Try It Out
-You can play QuestForge right now!
+## Link to App or Repo
 **Live App:** [https://main.d19npu0tbmgk5j.amplifyapp.com/](https://main.d19npu0tbmgk5j.amplifyapp.com/)

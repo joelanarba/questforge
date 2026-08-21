@@ -22,9 +22,19 @@ export function App() {
   const [session, setSession] = useState<GameSession | null>(null);
   const [error, setError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dailyQuest, setDailyQuest] = useState<any>(null);
 
   // Try to resume an existing session on mount
   useEffect(() => {
+    // Fetch daily quest
+    apiClient.getDailyQuest().then(dq => {
+      if (dq) {
+        setDailyQuest(dq);
+      }
+    }).catch(err => {
+      console.error('Failed to fetch daily quest:', err);
+    });
+
     const savedSessionId = getSessionId();
     if (savedSessionId) {
       setScreen('loading');
@@ -122,12 +132,32 @@ export function App() {
       });
   }, []);
 
+  const handleStartDaily = useCallback(
+    async (quest: any) => {
+      setScreen('loading');
+      setError('');
+      try {
+        const playerId = getPlayerId();
+        const s = await apiClient.startSession(playerId, quest.genreId, quest.archetypeId);
+        setSession(s);
+        setSessionId(s.sessionId);
+        setScreen('playing');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to start daily quest');
+        setScreen('error');
+      }
+    },
+    [],
+  );
+
   if (screen === 'landing') {
     return (
       <LandingPage 
         onStart={() => setScreen('genre')} 
+        onStartDaily={handleStartDaily}
         onViewPast={() => setScreen('adventureList')} 
         hasPlayerId={!!getPlayerId()} 
+        dailyQuest={dailyQuest}
       />
     );
   }

@@ -82,6 +82,12 @@ Resources:
             ApiId: !Ref QuestForgeApi
             Path: /players/{playerId}/sessions
             Method: GET
+        GetDailyQuest:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref QuestForgeApi
+            Path: /daily-quest
+            Method: GET
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref QuestForgeTable
@@ -105,6 +111,51 @@ Resources:
         Sourcemap: true
         EntryPoints:
           - src/handler.ts
+        OutExtension:
+          - .js=.mjs
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - '@aws-sdk/client-dynamodb'
+          - '@aws-sdk/lib-dynamodb'
+          - '@aws-sdk/client-ssm'
+
+  DailyAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: questforge-daily-agent
+      CodeUri: api/
+      Handler: src/agent.handler
+      Description: Scheduled agent to generate the Daily Quest
+      Events:
+        DailySchedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 6 * * ? *)
+            Name: questforge-daily-agent-schedule
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref QuestForgeTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${OpenAIKeyParam}"
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: "*"
+      Tags:
+        Project: QuestForge
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        Format: esm
+        Sourcemap: true
+        EntryPoints:
+          - src/agent.ts
         OutExtension:
           - .js=.mjs
         Banner:
