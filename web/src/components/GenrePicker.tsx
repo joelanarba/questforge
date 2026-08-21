@@ -29,7 +29,7 @@ const GENRES: Genre[] = [
   },
 ];
 
-export function GenrePicker({ onSelect }: { onSelect: (genre: string) => void }) {
+export function GenrePicker({ onSelect, onBack }: { onSelect: (genre: string) => void; onBack: () => void }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   return (
@@ -79,6 +79,27 @@ export function GenrePicker({ onSelect }: { onSelect: (genre: string) => void })
           </button>
         ))}
       </div>
+      
+      <button
+        id="back-to-landing"
+        onClick={onBack}
+        className="mt-8 px-6 py-2 text-sm rounded-lg border transition-colors duration-200 cursor-pointer"
+        style={{
+          borderColor: 'var(--color-border)',
+          color: 'var(--color-text-secondary)',
+          backgroundColor: 'transparent',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = 'var(--color-accent)';
+          e.currentTarget.style.color = 'var(--color-text-primary)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = 'var(--color-border)';
+          e.currentTarget.style.color = 'var(--color-text-secondary)';
+        }}
+      >
+        Back to Home
+      </button>
     </div>
   );
 }

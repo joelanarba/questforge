@@ -24,6 +24,25 @@ export function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dailyQuest, setDailyQuest] = useState<any>(null);
 
+  // Sync screen changes to browser history
+  useEffect(() => {
+    if (window.history.state?.screen !== screen) {
+      window.history.pushState({ screen }, '', window.location.pathname);
+    }
+  }, [screen]);
+
+  // Handle browser back button
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.screen) {
+        setScreen(event.state.screen);
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Try to resume an existing session on mount
   useEffect(() => {
     // Fetch daily quest
@@ -172,7 +191,7 @@ export function App() {
   }
 
   if (screen === 'genre') {
-    return <GenrePicker onSelect={handleGenreSelect} />;
+    return <GenrePicker onSelect={handleGenreSelect} onBack={() => setScreen('landing')} />;
   }
 
   if (screen === 'archetype') {
