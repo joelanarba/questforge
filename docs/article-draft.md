@@ -43,5 +43,50 @@ graph TD
 ## What You Learned
 Building the always-on agent for QuestForge reinforced the value of asynchronous content generation. By shifting the creative load from a synchronous user request to a scheduled background job, the perceived performance for the user improves dramatically. I also learned how incredibly easy it is to wire up EventBridge Scheduler to a Lambda function to create reliable, autonomous agents.
 
+### Proof of the Always-On Agent
+
+**The EventBridge Schedule running the agent autonomously every day at 6:00 AM UTC (from our SAM template):**
+```yaml
+  DailySchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      ScheduleExpression: cron(0 6 * * ? *)
+      FlexibleTimeWindow:
+        Mode: FLEXIBLE
+        MaximumWindowInMinutes: 15
+      Target:
+        Arn: !GetAtt DailyAgentFunction.Arn
+        RoleArn: !GetAtt DailyAgentFunctionDailyScheduleRole.Arn
+```
+
+**The Agent executing and writing directly to the database without user interaction:**
+```typescript
+export const handler = async (event: any): Promise<void> => {
+  // ... (Agent determines daily theme) ...
+
+  const systemPrompt = `You are a creative writer...`;
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'system', content: systemPrompt }],
+  });
+
+  // Save the result directly to the global world state
+  const questData = JSON.parse(completion.choices[0].message.content || '{}');
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        pk: 'DAILY_QUEST',
+        sk: `DATE#${dateStr}`,
+        ...questData,
+      },
+    })
+  );
+};
+```
+
+**The final result waiting for the user when they open the app:**
+![Quest of the Day UI](./daily-quest-ui.png)
+
 ## Link to App or Repo
 **Live App:** [https://main.d19npu0tbmgk5j.amplifyapp.com/](https://main.d19npu0tbmgk5j.amplifyapp.com/)
